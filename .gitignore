@@ -42,9 +42,6 @@ build/
 .terraform.lock.hcl
 !init.tf
 
-# Frontend build - keep dist folder, ignore dist.zip
-databricks_app/frontend/dist.zip
-
 # Reports and temp files (may contain sensitive data)
 output_summary_agent/
 output_old/
