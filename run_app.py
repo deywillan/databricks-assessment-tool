@@ -11,7 +11,6 @@ import signal
 import subprocess
 import platform
 from pathlib import Path
-from dotenv import load_dotenv
 
 # Colors for terminal output
 if platform.system() == "Windows":
@@ -28,7 +27,6 @@ NC = '\033[0m'  # No Color
 PROJECT_ROOT = Path(__file__).parent.absolute()
 BACKEND_DIR = PROJECT_ROOT / "databricks_app" / "backend"
 FRONTEND_DIR = PROJECT_ROOT / "databricks_app" / "frontend"
-ENV_FILE = PROJECT_ROOT / ".env"
 
 # Global process references
 backend_process = None
@@ -38,18 +36,6 @@ frontend_process = None
 def print_color(text, color=NC):
     """Print colored text"""
     print(f"{color}{text}{NC}")
-
-
-def load_env_file():
-    """Load environment variables from .env"""
-    if ENV_FILE.exists():
-        load_dotenv(ENV_FILE)
-        print_color(f"✅ Loaded .env from {ENV_FILE}", GREEN)
-        return True
-    else:
-        print_color(f"❌ .env file not found: {ENV_FILE}", RED)
-        print_color("   Create .env based on .env.example", YELLOW)
-        return False
 
 
 def check_python_version():
@@ -259,9 +245,6 @@ def main():
     if not check_node():
         sys.exit(1)
     
-    if not load_env_file():
-        sys.exit(1)
-    
     # Get ports from environment or use defaults
     backend_port = int(os.getenv("BACKEND_PORT", "8002"))
     frontend_port = int(os.getenv("FRONTEND_PORT", "3002"))
@@ -272,15 +255,7 @@ def main():
     
     # Ask if user wants to install dependencies
     print_color("\n" + "=" * 80, BLUE)
-    response = input("Install/update dependencies? [y/N]: ").strip().lower()
-    
-    if response == 'y':
-        if not install_backend_deps():
-            sys.exit(1)
-        if not install_frontend_deps():
-            sys.exit(1)
-    else:
-        print_color("⏭️  Skipping dependency installation", YELLOW)
+    print_color("⏭️  Skipping dependency installation", YELLOW)
     
     # Start services
     print_color("\n" + "=" * 80, BLUE)
