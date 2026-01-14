@@ -105,7 +105,12 @@ function App() {
     setActiveStep((prevActiveStep) => prevActiveStep - 1)
   }
 
-  const handleReset = () => {
+  const handleReset = async () => {
+    try {
+      await api.post('api/reset')
+    } catch (error) {
+      console.error('Error resetting state:', error)
+    }
     setActiveStep(0)
     setStepData({
       configuration: null,

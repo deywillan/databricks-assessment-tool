@@ -79,8 +79,10 @@ class TaskConfig(BaseModel):
     agent: str
 
 class ExecutionRequest(BaseModel):
-    run_terraform: bool = True
-    run_agents: bool = True
+    databricks_host: str
+    databricks_token: str
+    run_terraform: Optional[bool] = True
+    run_agents: Optional[bool] = True
     terraform_services: Optional[str] = "groups,secrets,access,compute,users,jobs,storage"
     terraform_listing: Optional[str] = "jobs,compute"
     terraform_debug: bool = False
@@ -150,52 +152,23 @@ async def validate_config(config: ConfigModel):
             "message": f"Error: {str(e)}"
         }
 
-@app.post("/api/config/save")
-async def save_config(config: ConfigModel):
-    """Save configuration to .env file"""
+@app.post("/api/reset")
+async def reset_state():
+    """Reset the application state for a new analysis"""
     try:
-        env_path = BASE_DIR / ".env"
+        # Reset execution state
+        execution_manager.reset_stop()
+        execution_manager.set_execution_state(False, None, 0)
         
-        env_content = f"""# Databricks Configuration
-DATABRICKS_HOST={config.databricks_host}
-DATABRICKS_TOKEN={config.databricks_token}
-"""
-        if config.terraform_path:
-            env_content += f"TERRAFORM_PATH={config.terraform_path}\n"
-        
-        with open(env_path, 'w') as f:
-            f.write(env_content)
-        
-        return {"success": True, "message": "Configuration saved successfully"}
-    except Exception as e:
-        logger.error(f"Error saving config: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Clean output and UCX directories
+        if OUTPUT_DIR.exists():
+            shutil.rmtree(OUTPUT_DIR)
+        if UCX_DIR.exists():
+            shutil.rmtree(UCX_DIR)
 
-@app.get("/api/config/load")
-async def load_config():
-    """Load existing configuration"""
-    try:
-        env_path = BASE_DIR / ".env"
-        if not env_path.exists():
-            return {"exists": False}
-        
-        config = {}
-        with open(env_path, 'r') as f:
-            for line in f:
-                if '=' in line and not line.startswith('#'):
-                    key, value = line.strip().split('=', 1)
-                    config[key.lower()] = value
-        
-        return {
-            "exists": True,
-            "config": {
-                "databricks_host": config.get("databricks_host", ""),
-                "databricks_token": config.get("databricks_token", "")[:10] + "..." if config.get("databricks_token") else "",
-                "terraform_path": config.get("terraform_path", "")
-            }
-        }
+        return {"success": True, "message": "Application state reset"}
     except Exception as e:
-        logger.error(f"Error loading config: {str(e)}")
+        logger.error(f"Error resetting state: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # ============================================================================
@@ -417,6 +390,8 @@ async def run_pipeline(request: ExecutionRequest):
             
             exporter = TerraformExporter()
             terraform_result = await exporter.run(
+                databricks_host=request.databricks_host,
+                databricks_token=request.databricks_token,
                 services=request.terraform_services or "groups,secrets,access,compute,users,jobs,storage",
                 listing=request.terraform_listing or "jobs,compute",
                 debug=request.terraform_debug,
@@ -451,6 +426,8 @@ async def run_pipeline(request: ExecutionRequest):
             
             analyzer = AIAgentsAnalyzer()
             agents_result = await analyzer.run(
+                databricks_host=request.databricks_host,
+                databricks_token=request.databricks_token,
                 selected_agents=request.selected_agents or "terraform_reader,databricks_specialist,ucx_analyst,report_generator",
                 report_language=request.report_language or "pt-BR",
                 callback=broadcast_callback

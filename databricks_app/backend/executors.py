@@ -11,7 +11,6 @@ import subprocess
 from pathlib import Path
 from typing import Optional, Callable, List
 import logging
-from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
@@ -21,15 +20,6 @@ TF_FILES_DIR = BASE_DIR / "databricks_tf_files"
 OUTPUT_DIR = BASE_DIR / "output_summary_agent"
 BACKEND_DIR = Path(__file__).parent
 AI_AGENT_DIR = BACKEND_DIR / "ai_agent"
-
-# Load environment variables from .env file
-env_file = BASE_DIR / ".env"
-if env_file.exists():
-    load_dotenv(env_file)
-    logger.info(f"✅ Loaded environment variables from {env_file}")
-else:
-    logger.warning(f"⚠️  .env file not found at {env_file}")
-
 
 def get_terraform_binary_path() -> Optional[Path]:
     """
@@ -106,6 +96,8 @@ class TerraformExporter:
         
     async def run(
         self,
+        databricks_host: str,
+        databricks_token: str,
         services: str = "groups,secrets,access,compute,users,jobs,storage",
         listing: str = "jobs,compute",
         debug: bool = False,
@@ -202,8 +194,8 @@ class TerraformExporter:
         
         # Set environment variables
         env = os.environ.copy()
-        env["DATABRICKS_HOST"] = os.getenv("DATABRICKS_HOST", "")
-        env["DATABRICKS_TOKEN"] = os.getenv("DATABRICKS_TOKEN", "")
+        env["DATABRICKS_HOST"] = databricks_host
+        env["DATABRICKS_TOKEN"] = databricks_token
         
         if not env["DATABRICKS_HOST"] or not env["DATABRICKS_TOKEN"]:
             error_msg = "DATABRICKS_HOST and DATABRICKS_TOKEN must be set"
@@ -334,6 +326,8 @@ class AIAgentsAnalyzer:
         
     async def run(
         self,
+        databricks_host: str,
+        databricks_token: str,
         selected_agents: str = "terraform_reader,databricks_specialist,ucx_analyst,report_generator",
         report_language: str = "pt-BR",
         callback: Optional[Callable] = None
@@ -429,6 +423,8 @@ class AIAgentsAnalyzer:
         
         # Set environment
         env = os.environ.copy()
+        env["DATABRICKS_HOST"] = databricks_host
+        env["DATABRICKS_TOKEN"] = databricks_token
         env["SELECTED_AGENTS"] = selected_agents
         env["REPORT_LANGUAGE"] = report_language
         env["PROJECT_ROOT"] = str(BASE_DIR)  # Ensure agent uses same base path as backend
